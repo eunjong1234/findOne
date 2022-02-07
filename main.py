@@ -1,11 +1,18 @@
 from pdf2image import convert_from_path
 import cv2
 import numpy as np
+import keyboard
 
 
 def onMouse(event, x, y, flags, param):
+    global count, click_points
+
     if event == cv2.EVENT_LBUTTONUP:
-        print(x, y)
+        click_points.append([y, x])
+        count += 1
+
+        if count == 2:
+            keyboard.write('a', delay=0)
 
 
 def findMultiple(before, now, standard):
@@ -18,13 +25,23 @@ def findMultiple(before, now, standard):
             mok += 1
         return mok
 
+path = "./print/정유/E-50-2B.pdf"
+new_path = '.' + path.split('.')[1] + '.png'
+convert_from_path(path)[0].save(new_path, 'PNG')
 
-convert_from_path("./print/Aro/Aro1/E-700-2B.pdf")[0].save("./print/Aro/Aro1/E-700-2B.png", 'PNG')
-
-image = cv2.imread("./print/Aro/Aro1/E-700-2B.png")
+image = cv2.imread(new_path)
 image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-image = image[640:1844, 190:1464]
-circles = cv2.HoughCircles(image, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=23, minRadius=10, maxRadius=15)
+
+# 파이프 부분만 오리기
+count = 0
+click_points = []
+cv2.imshow('image0', image)
+cv2.setMouseCallback('image0', onMouse)
+cv2.waitKey()
+cv2.destroyWindow('image0')
+
+image = image[click_points[0][0]:click_points[1][0], click_points[0][1]:click_points[1][1]]
+circles = cv2.HoughCircles(image, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=20, minRadius=10, maxRadius=20)
 
 li_for_col = []
 li_for_row = []
@@ -39,6 +56,14 @@ for i in circles[0, :]:
         circle_radius[i[2]] += 1
     else:
         circle_radius[i[2]] = 1
+
+
+cv2.imshow('image', image)
+key_pressed = cv2.waitKey()
+if key_pressed == ord('q'):
+    cv2.destroyAllWindows()
+    exit(0)
+
 
 radius = max(circle_radius, key=circle_radius.get)
 li_for_col.sort()
@@ -69,9 +94,6 @@ for ind, (j, i) in enumerate(li_for_row):
             difference_row[diff] = 1
 
 standard_row = max(difference_row, key=difference_row.get)
-
-print('위랑 아래의 차이의 정규', standard_col)
-print('왼과 오른쪽을 차이의 정규', standard_row)
 
 i_set = set()
 j_set = set()
@@ -128,11 +150,5 @@ for row in result:
         print(elem, end=' ')
     print()
 
-for j, i in li_for_row:
-    cv2.circle(image, (i, j), 2, (0, 0, 255), 3)
-
-
-cv2.imshow('image', image)
-# cv2.setMouseCallback('image', onMouse)
-
 cv2.waitKey()
+cv2.destroyAllWindows()
