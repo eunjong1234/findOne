@@ -2,6 +2,7 @@ from pdf2image import convert_from_path
 import cv2
 import numpy as np
 import os
+from copy import deepcopy
 
 
 def findMultiple(before, now, standard):
@@ -15,7 +16,7 @@ def findMultiple(before, now, standard):
         return mok
 
 
-path = "print/Aro/Aro1/E-700-3A.pdf"
+path = "print/Aro/Aro1/E-700-2B.pdf"
 new_path = './' + path.split('.')[0] + '.png'
 convert_from_path(path)[0].save(new_path, 'PNG')
 
@@ -140,6 +141,22 @@ for i, j in li_for_col:
             j_ind = ind
     result[j_ind][i_ind] = 1
 
+
+col = 1
+client_list = deepcopy(result)
+for col_index in range(len(client_list)):
+    row = 1
+    for row_index in range(len(client_list[0])):
+        if client_list[col_index][row_index] == 1:
+            client_list[col_index][row_index] = (col, row)
+            row += 1
+    col += 1
+
+# for row in client_list:
+#     for elem in row:
+#         print(elem, end=' ')
+#     print()
+# print()
 
 for row in result:
     for elem in row:
