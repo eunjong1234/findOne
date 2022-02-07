@@ -1,18 +1,7 @@
 from pdf2image import convert_from_path
 import cv2
 import numpy as np
-import keyboard
-
-
-def onMouse(event, x, y, flags, param):
-    global count, click_points
-
-    if event == cv2.EVENT_LBUTTONUP:
-        click_points.append([y, x])
-        count += 1
-
-        if count == 2:
-            keyboard.write('a', delay=0)
+import os
 
 
 def findMultiple(before, now, standard):
@@ -25,23 +14,32 @@ def findMultiple(before, now, standard):
             mok += 1
         return mok
 
-path = "./print/정유/E-50-2B.pdf"
-new_path = '.' + path.split('.')[1] + '.png'
+
+path = "print/Aro/Aro1/E-700-3A.pdf"
+new_path = './' + path.split('.')[0] + '.png'
 convert_from_path(path)[0].save(new_path, 'PNG')
 
-image = cv2.imread(new_path)
-image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+original_image = cv2.imread(new_path)
+image = original_image.copy()
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+blur_image = cv2.medianBlur(gray, 7)
 
-# 파이프 부분만 오리기
-count = 0
-click_points = []
-cv2.imshow('image0', image)
-cv2.setMouseCallback('image0', onMouse)
-cv2.waitKey()
-cv2.destroyWindow('image0')
+_, th = cv2.threshold(blur_image, 250, 255, cv2.THRESH_BINARY_INV)
+# 숫자 크면 더 넓게 잡힘
+kernel = np.ones((18, 18), np.uint8)
+dilation = cv2.dilate(th, kernel, iterations=2)
+closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
 
-image = image[click_points[0][0]:click_points[1][0], click_points[0][1]:click_points[1][1]]
-circles = cv2.HoughCircles(image, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=20, minRadius=10, maxRadius=20)
+contours, hierarchy = cv2.findContours(closing, cv2.RETR_EXTERNAL, 3)
+hull = list()
+for contour in contours:
+    hull.append(cv2.convexHull(contour))
+
+img_contour = cv2.drawContours(image, hull, -1, (255, 255, 255), -1)
+
+img_contour = cv2.cvtColor(img_contour, cv2.COLOR_BGR2GRAY)
+# param2 작을수록 기준 빡세짐
+circles = cv2.HoughCircles(img_contour, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=25, minRadius=8, maxRadius=40)
 
 li_for_col = []
 li_for_row = []
@@ -49,7 +47,7 @@ circle_radius = dict()
 circles = np.uint16(np.around(circles))
 
 for i in circles[0, :]:
-    cv2.circle(image, (i[0], i[1]), 2, (0, 0, 255), 3)
+    cv2.circle(img_contour, (i[0], i[1]), 2, (0, 0, 255), 3)
     li_for_col.append((i[0], i[1]))
     li_for_row.append((i[1], i[0]))
     if i[2] in circle_radius:
@@ -58,11 +56,8 @@ for i in circles[0, :]:
         circle_radius[i[2]] = 1
 
 
-cv2.imshow('image', image)
-key_pressed = cv2.waitKey()
-if key_pressed == ord('q'):
-    cv2.destroyAllWindows()
-    exit(0)
+cv2.imshow('image', img_contour)
+cv2.waitKey()
 
 
 radius = max(circle_radius, key=circle_radius.get)
@@ -134,8 +129,8 @@ for ind in range(len(j_distinct)):
             j_indexing.append([])
         j_indexing.append([j_distinct[ind]])
 
-result = [[0 for col in range(len(i_indexing))] for row in range(len(j_indexing))]
 
+result = [[0 for col in range(len(i_indexing))] for row in range(len(j_indexing))]
 for i, j in li_for_col:
     for ind, temp_li in enumerate(i_indexing):
         if i in temp_li:
@@ -145,10 +140,14 @@ for i, j in li_for_col:
             j_ind = ind
     result[j_ind][i_ind] = 1
 
+
 for row in result:
     for elem in row:
         print(elem, end=' ')
     print()
 
-cv2.waitKey()
+
+if(os.path.isfile(new_path)):
+    os.remove(new_path)
+
 cv2.destroyAllWindows()
