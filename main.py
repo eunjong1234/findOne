@@ -16,7 +16,7 @@ def findMultiple(before, now, standard):
         return mok
 
 
-path = "print/Aro/Aro1/E-700-2B.pdf"
+path = "print/Aro/Aro1/E-700-3A.pdf"
 new_path = './' + path.split('.')[0] + '.png'
 convert_from_path(path)[0].save(new_path, 'PNG')
 
@@ -26,7 +26,7 @@ gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 blur_image = cv2.medianBlur(gray, 7)
 
 _, th = cv2.threshold(blur_image, 250, 255, cv2.THRESH_BINARY_INV)
-# 숫자 크면 더 넓게 잡힘
+# 숫자 크면 더 contour 넓게 잡힘
 kernel = np.ones((18, 18), np.uint8)
 dilation = cv2.dilate(th, kernel, iterations=2)
 closing = cv2.morphologyEx(dilation, cv2.MORPH_CLOSE, kernel)
@@ -39,23 +39,36 @@ for contour in contours:
 img_contour = cv2.drawContours(image, hull, -1, (255, 255, 255), -1)
 
 img_contour = cv2.cvtColor(img_contour, cv2.COLOR_BGR2GRAY)
-# param2 작을수록 기준 빡세짐
-circles = cv2.HoughCircles(img_contour, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=25, minRadius=8, maxRadius=40)
+# param2 작을수록 개나소나 다 잡힘
+circles = cv2.HoughCircles(img_contour, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=25, minRadius=8, maxRadius=20)
 
 li_for_col = []
 li_for_row = []
 circle_radius = dict()
 circles = np.uint16(np.around(circles))
 
+
+most_l = 10000
+most_r = 0
+most_t = 10000
+most_b = 0
 for i in circles[0, :]:
-    cv2.circle(img_contour, (i[0], i[1]), 2, (0, 0, 255), 3)
+    r = i[2]
+    if i[0] - r < most_l:
+        most_l = i[0] - r
+    if i[0] + r > most_r:
+        most_r = i[0] + r
+    if i[1] - r < most_t:
+        most_t = i[1] - r
+    if i[1] + r > most_b:
+        most_b = i[1] + r
     li_for_col.append((i[0], i[1]))
     li_for_row.append((i[1], i[0]))
-    if i[2] in circle_radius:
-        circle_radius[i[2]] += 1
+    if r in circle_radius:
+        circle_radius[r] += 1
     else:
-        circle_radius[i[2]] = 1
-
+        circle_radius[r] = 1
+print(most_l, most_r, most_t, most_b)
 
 cv2.imshow('image', img_contour)
 cv2.waitKey()
