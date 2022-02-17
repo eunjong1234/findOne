@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import os
 from copy import deepcopy
+import pymssql
+import re
 
 
 def findMultiple(before, now, standard):
@@ -16,7 +18,10 @@ def findMultiple(before, now, standard):
         return mok
 
 
-path = "print/Aro/Aro1/E-700-3A.pdf"
+conn = pymssql.connect('172.30.1.50', 'bmeks', 'qlaprtm1@', 'T_TIMS_1_RE')
+cursor = conn.cursor()
+
+path = "print/Aro/Aro1/E-700-9A1.pdf"
 new_path = './' + path.split('.')[0] + '.png'
 convert_from_path(path)[0].save(new_path, 'PNG')
 
@@ -37,14 +42,10 @@ for contour in contours:
     hull.append(cv2.convexHull(contour))
 
 img_contour = cv2.drawContours(image, hull, -1, (255, 255, 255), -1)
-
 img_contour = cv2.cvtColor(img_contour, cv2.COLOR_BGR2GRAY)
-# param2 작을수록 개나소나 다 잡힘
-circles = cv2.HoughCircles(img_contour, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=25, minRadius=8, maxRadius=20)
 
-li_for_col = []
-li_for_row = []
-circle_radius = dict()
+# param2 작을수록 개나소나 다 잡힘
+circles = cv2.HoughCircles(img_contour, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=25, minRadius=8, maxRadius=25)
 circles = np.uint16(np.around(circles))
 
 
@@ -62,13 +63,31 @@ for i in circles[0, :]:
         most_t = i[1] - r
     if i[1] + r > most_b:
         most_b = i[1] + r
+
+img_contour = img_contour[most_t-10:most_b+10, most_l-10:most_r+10]
+circles = cv2.HoughCircles(img_contour, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=22, minRadius=8, maxRadius=22)
+
+li_for_col = []
+li_for_row = []
+circle_radius = dict()
+circles = np.uint16(np.around(circles))
+for i in circles[0, :]:
+    r = i[2]
+    cv2.circle(img_contour, (i[0], i[1]), i[2], (0, 255, 0), 2)
+    cv2.circle(img_contour, (i[0], i[1]), 1, (0, 255, 0), 2)
     li_for_col.append((i[0], i[1]))
     li_for_row.append((i[1], i[0]))
     if r in circle_radius:
         circle_radius[r] += 1
     else:
         circle_radius[r] = 1
-print(most_l, most_r, most_t, most_b)
+
+p = re.compile('E-[a-zA-Z0-9-]+')
+m = p.findall(path)
+cursor.execute(f"SELECT Main_Name, Tube_cnt FROM ENERGY.SEPIP_Mater_Thick WHERE Main_Name like '{m[0]}%';")
+row = cursor.fetchone()
+print('DB :', row[1])
+print('REAL :', len(circles[0]))
 
 cv2.imshow('image', img_contour)
 cv2.waitKey()
@@ -180,4 +199,5 @@ for row in result:
 if(os.path.isfile(new_path)):
     os.remove(new_path)
 
+conn.close()
 cv2.destroyAllWindows()
