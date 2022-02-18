@@ -2,3 +2,4 @@
 print/
 __pycache__/
 equips/
+migrations/
