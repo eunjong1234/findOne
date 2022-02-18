@@ -1,2 +1,4 @@
 .idea/
 print/
+__pycache__/
+equips/
